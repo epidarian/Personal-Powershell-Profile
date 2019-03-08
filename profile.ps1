@@ -23,7 +23,7 @@ function Generate-RandomString ([int]$Length = 8, [switch]$SelectedSpecials, [sw
         if ($AlphaLowers -ne $true) {
             $keyspace += [char[]]([char]97..[char]122)
         }
-        
+
         if ($keyspace.Length -le 0) {
             Write-Host "Keyspace Error! No character pool! Increase Empathy!!!!" 
         } else { 
