@@ -1,7 +1,7 @@
 function Encode-ImageToBase64 ([String]$FilePath, [String]$Prefix="data:image/png;base64"){
 	$rawImageToByteString = [convert]::ToBase64String((Get-Content $FilePath -Encoding byte))
 	$formattedImageFromByteStringToBase64 = "`"$Prefix,$rawImageToByteString`""
-	echo $formattedImageFromByteStringToBase64
+	return $formattedImageFromByteStringToBase64
 }
 
 function Generate-RandomString ([int]$Length = 8, [switch]$SelectedSpecials, [switch]$AlphaCaps, [switch]$AlphaLowers, [switch]$Numerals) {
@@ -28,7 +28,16 @@ function Generate-RandomString ([int]$Length = 8, [switch]$SelectedSpecials, [sw
             Write-Host "Keyspace Error! No character pool! Increase Empathy!!!!" 
         } else { 
             $ResultString = (1..$Length | % {$keyspace | Get-Random}) -join "" 
-            echo $ResultString
+            return $ResultString
         }
+    }
+}
+
+function AmIRoot {
+    $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+    if ( $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) ) {
+        return 0
+    } else {
+        return 1
     }
 }
