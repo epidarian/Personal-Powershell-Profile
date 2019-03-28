@@ -41,3 +41,98 @@ function AmIRoot {
         return 1
     }
 }
+
+<# Credit to Adam Bertram from Techsnips for these Azure Framework gems which I have made better with a little error handling
+Requirements:
+Install az tools with  `Install-Module -Name Az -AllowClobber`
+Enable powershell az aliases with `Enable-AzureRmAlias` #>
+
+function New-AzureRmVmSnapshot {
+    param(
+     [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$VmName,
+     [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$ResourceGroup,
+     [Parameter()][ValidateNotNullOrEmpty()]         [string]$SnapshotName,
+     [Parameter()][ValidateNotNullOrEmpty()]         [switch]$RemoveOriginalDisk
+    )
+    $currentDate = (Get-Date -UFormat %Y%m%d%H%M%s).Replace(".","")
+
+    try {
+        $vm = Get-AzureRmVM -Name $VmName -ResourceGroupName $ResourceGroup
+    } catch {
+        Throw "$_ :: Or :: Error getting VM Object"
+    }
+
+    #not sure why this is necessary, seems redundant
+    $stopParams = @{
+        ResourceGroupName = $ResourceGroup
+        Force = $true
+    }
+    try { 
+        $vm | Stop-AzureRmVm -ResourceGroupName $ResourceGroup -Force
+    } catch {
+        throw "$_ :: or :: Unable to stop Azure VM"
+    }
+
+    $diskName = $vm.StorageProfile.OSDisk.Name
+    $osDisk = Get-AzureRmDisk -ResourceGroupName $ResourceGroup -DiskName $diskname 
+    $snapConfig = New-AzureRmSnapshotConfig -SourceUri $osDisk.Id -CreateOption Copy -Location $vm.Location 
+    if ([string]$SnapshotName.IsPresent) {
+        $SnapshotNamePost = $SnapshotName
+    } else {
+        $SnapshotNamePost = '{0}{1}' -f $vm.Name,$currentDate
+    }
+    New-AzureRmSnapshot -Snapshot $snapConfig -SnapshotName $SnapshotNamePost -ResourceGroupName $ResourceGroup
+}
+
+function Restore-AzureRmVmSnapshot {
+    param ([Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$VmName,
+           [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$ResourceGroup,
+           [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$SnapshotName,
+           [Parameter()][ValidateNotNullOrEmpty()]         [switch]$RemoveOriginalDisk
+    )
+ 
+    try {
+        $vm = Get-AzureRmVM -Name $VmName -ResourceGroupName $ResourceGroup
+    } catch {
+        Throw "$_ :: Or :: Error getting VM Object"
+    }
+
+    if ( !($vm) ) {
+        Throw "$_ VM not found"
+    } else { 
+        ## Find the OS disk on the VM to get the storage type
+        $osDiskName = $vm.StorageProfile.OsDisk.name
+        $oldOsDisk = Get-AzureRmDisk -Name $osDiskName -ResourceGroupName $ResourceGroup
+        $storageType = $oldOsDisk.sku.name
+ 
+        ## Create the new disk from the snapshot
+        $snapshot = Get-AzureRmSnapshot -ResourceGroupName $ResourceGroup | Where-Object { $_.Name -eq $SnapshotName }
+        $diskconf = New-AzureRmDiskConfig -AccountType $storagetype -Location $oldOsdisk.Location -SourceResourceId $snapshot.Id -CreateOption Copy
+        $newDisk = New-AzureRmDisk -Disk $diskconf -ResourceGroupName $resourceGroup -DiskName "$($vm.Name)-$((New-Guid).ToString())"
+ 
+        # Set the VM configuration to point to the new disk
+        try {
+            Set-AzureRmVMOSDisk -VM $vm -ManagedDiskId $newDisk.Id -Name $newDisk.Name
+        } catch {
+            throw "$_ :: or :: Failed to attach new OS disk from snapshot"
+        }
+ 
+        # Update the VM with the new OS disk
+        try {
+            Update-AzureRmVM -ResourceGroupName $resourceGroup -VM $vm 
+        } catch {
+            throw "$_ :: or ::Failed to update new configuration "
+        }
+ 
+        # Start the VM 
+        Start-AzureRmVM -Name $vm.Name -ResourceGroupName $resourceGroup
+ 
+        if ([switch]$RemoveOriginalDisk.IsPresent) {
+            try {
+                Remove-AzureRmDisk -ResourceGroupName $ResourceGroup -DiskName $oldOsDisk.Name
+            } catch {
+                throw "$_ :: or :: Failed to delete outdated disk"
+            }
+        }
+    }
+}
