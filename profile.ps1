@@ -6,7 +6,7 @@ function Encode-ImageToBase64 ([String]$FilePath, [String]$Prefix="data:image/pn
 
 function Generate-RandomString ([int]$Length = 8, [switch]$SelectedSpecials, [switch]$AlphaCaps, [switch]$AlphaLowers, [switch]$Numerals) {
     if ($Length -le 0) {
-        Write-Host "Error! Nonsensical Length"
+        throw "Error! Nonsensical Length"
     } else {
         if ($SelectedSpecials -ne $true) {
             $keyspace += [char[]]([char]33 + [char]126 + [char]64 + [char]46 + [char]94 + [char]35 + [char]95)
