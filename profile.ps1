@@ -25,7 +25,7 @@ function Generate-RandomString ([int]$Length = 8, [switch]$SelectedSpecials, [sw
         }
 
         if ($keyspace.Length -le 0) {
-            Write-Host "Keyspace Error! No character pool! Increase Empathy!!!!" 
+            throw "Keyspace Error! No character pool! Increase Empathy!!!!" 
         } else { 
             $ResultString = (1..$Length | % {$keyspace | Get-Random}) -join "" 
             return $ResultString
