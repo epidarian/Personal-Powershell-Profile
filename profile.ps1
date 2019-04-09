@@ -76,10 +76,10 @@ function New-AzureRmVmSnapshot {
     $diskName = $vm.StorageProfile.OSDisk.Name
     $osDisk = Get-AzureRmDisk -ResourceGroupName $ResourceGroup -DiskName $diskname 
     $snapConfig = New-AzureRmSnapshotConfig -SourceUri $osDisk.Id -CreateOption Copy -Location $vm.Location 
-    if ([string]$SnapshotName.IsPresent) {
+    if ($SnapshotName) {
         $SnapshotNamePost = $SnapshotName
     } else {
-        $SnapshotNamePost = '{0}{1}' -f $vm.Name,$currentDate
+        $SnapshotNamePost = '{0}-{1}' -f $vm.Name,$currentDate
     }
     New-AzureRmSnapshot -Snapshot $snapConfig -SnapshotName $SnapshotNamePost -ResourceGroupName $ResourceGroup
 }
