@@ -53,37 +53,44 @@ function AmIRoot {
     }
 }
 
-function Login-ToExchangeOnline ( [switch]$gvt, [string][ValidateSet("IEConfig", "WinHttpConfig", "AutoDetect")]$Proxy, [switch]$NoChRoot ){
-    $UserCreds = Get-Credential
+function Login-ToExchangeOnline ( [switch]$gvt, [ValidateSet($null, "IEConfig", "WinHttpConfig", "AutoDetect")]$Proxy = $null, [switch]$NoChRoot ){
     $tenement = "https://outlook.office365.com/powershell-liveid/"
 
     if ([switch]$gvt) {
         $tenement = "https://outlook.office365.us/powershell-liveid/"
     }
 
-    if ($Proxy) {
+    if ($Proxy -ne $null) {
         $ProxyOptions = New-PSSessionOption -ProxyAccessType $Proxy
         try {
-            $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $tenement -Credential $UserCredential -Authentication Basic -AllowRedirection -SessionOption $ProxyOptions -ErrorAction Inquire
+            $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $tenement -Credential (Get-Credential) -Authentication Basic -AllowRedirection -SessionOption $ProxyOptions -ErrorAction Inquire
         } catch {
-            Write-Host "Retrying...." 
+            Write-Host "$_ Retrying...." 
+            $UserCredential = $null
             Login-ToExchangeOnline $args
         }
     }
-
     
     try {
-        $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $tenement -Credential $UserCredential -Authentication Basic -AllowRedirection -ErrorAction Inquire
+        $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $tenement -Credential (Get-Credential) -Authentication Basic -AllowRedirection -ErrorAction Inquire
     } catch {
         Write-Host "Retrying...." 
+        $UserCredential = $null
         Login-ToExchangeOnline $args
     }
 
+    If ( !($NoChRoot).IsPresent ) {
     Import-PSSession $Session -DisableNameChecking
+    }
+
     return $Session
 }
 
-function logout ($Session) {
+function logout ($Session = $null) {
+    if ($Session -eq $null) {
+        Get-PSSession | Remove-PSSession -ErrorAction Inquire
+    }
+
     try {
         Remove-PSSession $Session -ErrorAction Continue
     } catch {
