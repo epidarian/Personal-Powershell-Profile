@@ -1,3 +1,14 @@
+function I-Forget {
+	Write-Host "`n
+	Encode-ImageToBase64`n
+	Generate-RandomString`n
+	AmIRoot`n
+	Login-ToExchangeOnline`n
+	Restore-AzureRmVmSnapshot`n
+	Restore-AzureRmVmSnapshot`n
+	"
+}
+
 function Encode-ImageToBase64 ([String]$FilePath, [String]$Prefix="data:image/png;base64"){
 	$rawImageToByteString = [convert]::ToBase64String((Get-Content $FilePath -Encoding byte))
 	$formattedImageFromByteStringToBase64 = "`"$Prefix,$rawImageToByteString`""
@@ -39,6 +50,44 @@ function AmIRoot {
         return 0
     } else {
         return 1
+    }
+}
+
+function Login-ToExchangeOnline ( [switch]$gvt, [string][ValidateSet("IEConfig", "WinHttpConfig", "AutoDetect")]$Proxy, [switch]$NoChRoot ){
+    $UserCreds = Get-Credential
+    $tenement = "https://outlook.office365.com/powershell-liveid/"
+
+    if ([switch]$gvt) {
+        $tenement = "https://outlook.office365.us/powershell-liveid/"
+    }
+
+    if ($Proxy) {
+        $ProxyOptions = New-PSSessionOption -ProxyAccessType $Proxy
+        try {
+            $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $tenement -Credential $UserCredential -Authentication Basic -AllowRedirection -SessionOption $ProxyOptions -ErrorAction Inquire
+        } catch {
+            Write-Host "Retrying...." 
+            Login-ToExchangeOnline $args
+        }
+    }
+
+    
+    try {
+        $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $tenement -Credential $UserCredential -Authentication Basic -AllowRedirection -ErrorAction Inquire
+    } catch {
+        Write-Host "Retrying...." 
+        Login-ToExchangeOnline $args
+    }
+
+    Import-PSSession $Session -DisableNameChecking
+    return $Session
+}
+
+function logout ($Session) {
+    try {
+        Remove-PSSession $Session -ErrorAction Continue
+    } catch {
+        Throw $_ 
     }
 }
 
