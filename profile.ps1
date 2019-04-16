@@ -68,15 +68,19 @@ function Login-ToExchangeOnline ( [switch]$gvt, [ValidateSet($null, "IEConfig", 
             Write-Host "$_ Retrying...." 
             $UserCredential = $null
             Login-ToExchangeOnline $args
+        } finally {
+            throw "An Error has occurred on retrying"
         }
-    }
-    
-    try {
-        $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $tenement -Credential (Get-Credential) -Authentication Basic -AllowRedirection -ErrorAction Inquire
-    } catch {
-        Write-Host "Retrying...." 
-        $UserCredential = $null
-        Login-ToExchangeOnline $args
+    } else {  
+        try {
+            $Session = New-PSSession -ConfigurationName Microsoft.Exchange -ConnectionUri $tenement -Credential (Get-Credential) -Authentication Basic -AllowRedirection -ErrorAction Inquire
+        } catch {
+            Write-Host "Retrying...." 
+            $UserCredential = $null
+            Login-ToExchangeOnline $args
+        } finally {
+            throw "An Error has occurred on retrying"
+        }
     }
 
     If ( !($NoChRoot).IsPresent ) {
@@ -92,7 +96,7 @@ function logout ($Session = $null) {
     }
 
     try {
-        Remove-PSSession $Session -ErrorAction Continue
+        Remove-PSSession $Session -ErrorAction Stop
     } catch {
         Throw $_ 
     }
